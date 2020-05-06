@@ -2,17 +2,11 @@ package com.usthe.bootshiro.shiro.filter;
 
 
 import com.usthe.bootshiro.service.AccountService;
-import com.usthe.bootshiro.shiro.config.RestPathMatchingFilterChainResolver;
 import com.usthe.bootshiro.shiro.provider.ShiroFilterRulesProvider;
 import com.usthe.bootshiro.shiro.rule.RolePermRule;
-import com.usthe.bootshiro.support.SpringContextHolder;
-import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
-import org.apache.shiro.web.filter.mgt.DefaultFilterChainManager;
-import org.apache.shiro.web.servlet.AbstractShiroFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import javax.servlet.Filter;
@@ -35,9 +29,6 @@ public class ShiroFilterChainManager {
     private final StringRedisTemplate redisTemplate;
     private final AccountService accountService;
 
-    @Value("${bootshiro.enableEncryptPassword}")
-    private boolean isEncryptPassword;
-
     @Autowired
     public ShiroFilterChainManager(ShiroFilterRulesProvider shiroFilterRulesProvider,StringRedisTemplate redisTemplate,AccountService accountService){
         this.shiroFilterRulesProvider = shiroFilterRulesProvider;
@@ -52,13 +43,7 @@ public class ShiroFilterChainManager {
      */
     public Map<String,Filter> initGetFilters() {
         Map<String,Filter> filters = new LinkedHashMap<>();
-        PasswordFilter passwordFilter = new PasswordFilter();
-        passwordFilter.setRedisTemplate(redisTemplate);
-        passwordFilter.setEncryptPassword(isEncryptPassword);
-        filters.put("auth",passwordFilter);
         BonJwtFilter jwtFilter = new BonJwtFilter();
-        jwtFilter.setRedisTemplate(redisTemplate);
-        jwtFilter.setAccountService(accountService);
         filters.put("jwt",jwtFilter);
         return filters;
     }
@@ -88,23 +73,5 @@ public class ShiroFilterChainManager {
             }
         }
         return filterChain;
-    }
-    /**
-     * description 动态重新加载过滤链规则
-     */
-    public void reloadFilterChain() {
-            ShiroFilterFactoryBean shiroFilterFactoryBean = SpringContextHolder.getBean(ShiroFilterFactoryBean.class);
-            AbstractShiroFilter abstractShiroFilter = null;
-            try {
-                abstractShiroFilter = (AbstractShiroFilter)shiroFilterFactoryBean.getObject();
-                RestPathMatchingFilterChainResolver filterChainResolver = (RestPathMatchingFilterChainResolver)abstractShiroFilter.getFilterChainResolver();
-                DefaultFilterChainManager filterChainManager = (DefaultFilterChainManager)filterChainResolver.getFilterChainManager();
-                filterChainManager.getFilterChains().clear();
-                shiroFilterFactoryBean.getFilterChainDefinitionMap().clear();
-                shiroFilterFactoryBean.setFilterChainDefinitionMap(this.initGetFilterChain());
-                shiroFilterFactoryBean.getFilterChainDefinitionMap().forEach((k,v) -> filterChainManager.createChain(k,v));
-            } catch (Exception e) {
-                LOGGER.error(e.getMessage(),e);
-            }
     }
 }
